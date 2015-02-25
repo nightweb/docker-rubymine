@@ -17,18 +17,17 @@ EXPOSE 22
 
 RUN apt-get update && apt-get install -y nodejs mysql-client postgresql-client sqlite3 --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
+RUN gem update --system
 ENV GEM_HOME /root/.gem/ruby/2.2.0/
 ENV PATH $GEM_HOME/bin:$PATH
+
 RUN gem install bundler ruby-debug-ide debase \
   && bundle config --global path "$GEM_HOME" \
   && bundle config --global bin "$GEM_HOME/bin"
-
 ENV BUNDLE_APP_CONFIG $GEM_HOME
 
 RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
-
-RUN gem update --system
 
 ONBUILD COPY Gemfile /usr/src/app/
 ONBUILD COPY Gemfile.lock /usr/src/app/
