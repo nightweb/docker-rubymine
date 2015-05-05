@@ -1,26 +1,4 @@
-# ruby 2.1.3
-# iojs 1.6.4
-# openssh 6.7p1
-# mysql 14.14 Distrib 5.5.42
-# postgres 2.25.2
-# sqlite3 3.8.7.1
-#
-# EXPOSE 22
-# EXPOSE 3000
-#
-# ENV
-# PATH=/root/.gem/ruby/2.2.0//bin:/usr/local/bundle/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-# RUBY_MAJOR=2.1
-# RUBY_VERSION=2.1.3
-# RUBY_DOWNLOAD_SHA256=5a4de38068eca8919cb087d338c0c2e3d72c9382c804fb27ab746e6c7819ab28
-# GEM_HOME=/root/.gem/ruby/2.1.3/
-# BUNDLE_APP_CONFIG=/root/.gem/ruby/2.1.3/
-# NOTVISIBLE="in users profile"
-# NPM_CONFIG_LOGLEVEL=info
-# IOJS_VERSION=1.6.4
-# HOME=/root
-
-FROM ruby:2.1.3
+FROM ruby:2.2.1
 MAINTAINER zchee <zcheeee@gmail.com>
 
 RUN apt-get update && apt-get install -y openssh-server --no-install-recommends
@@ -44,7 +22,7 @@ RUN gpg --keyserver pool.sks-keyservers.net --recv-keys \
   FD3A5288F042B6850C66B31F09FE44734EB7990E
 
 ENV NPM_CONFIG_LOGLEVEL info
-ENV IOJS_VERSION 1.6.4
+ENV IOJS_VERSION 2.0.0
 
 RUN curl -SLO "https://iojs.org/dist/v$IOJS_VERSION/iojs-v$IOJS_VERSION-linux-x64.tar.gz" \
   && curl -SLO "https://iojs.org/dist/v$IOJS_VERSION/SHASUMS256.txt.asc" \
@@ -55,22 +33,46 @@ RUN curl -SLO "https://iojs.org/dist/v$IOJS_VERSION/iojs-v$IOJS_VERSION-linux-x6
 
 RUN gem update --system
 ENV GEM_HOME /root/.gem/ruby/${RUBY_MAJOR}.0/
-RUN echo "GEM_HOME=/root/.gem/ruby/${RUBY_MAJOR}.0/" >> /root/.bashrc
+RUN echo "export GEM_HOME=/root/.gem/ruby/${RUBY_MAJOR}.0/" >> /root/.bashrc
 ENV PATH $GEM_HOME/bin:$PATH
-RUN echo "PATH=$GEM_HOME/bin:$PATH" >> /root/.bashrc
+RUN echo "export PATH=$GEM_HOME/bin:$PATH" >> /root/.bashrc
 
 RUN gem install bundler && \
-  	bundle config --global path "$GEM_HOME" && \
-		bundle config --global bin "$GEM_HOME/bin" && \
-  	bundle config --global jobs 10
+    bundle config --global path "$GEM_HOME" && \
+    bundle config --global bin "$GEM_HOME/bin" && \
+    bundle config --global jobs 10
 ENV BUNDLE_APP_CONFIG $GEM_HOME
-RUN echo "BUNDLE_APP_CONFIG=$GEM_HOME" >> /root/.bashrc
+RUN echo "export BUNDLE_APP_CONFIG=$GEM_HOME" >> /root/.bashrc
 
 RUN mkdir -p /usr/src/app
+
+WORKDIR /tmp
+ENV ZSH_VERSION 5.0.7
+RUN curl -SLO "http://jaist.dl.sourceforge.net/project/zsh/zsh/${ZSH_VERSION}/zsh-${ZSH_VERSION}.tar.bz2"
+RUN tar -jxf "zsh-${ZSH_VERSION}.tar.bz2"
+WORKDIR zsh-${ZSH_VERSION}
+RUN ./configure --prefix=/usr/local --enable-multibyte --enable-locale --with-tcsetpgrp
+RUN make && make install
+
+RUN echo '/usr/local/bin/zsh' >> /etc/shells
+RUN chsh -s /usr/local/bin/zsh root
+
+ENV HOME /root
+RUN git clone --recursive https://github.com/sorin-ionescu/prezto.git "$HOME/.zprezto"
+
+RUN mv /root/.zprezto/runcoms/zlogin /root/.zlogin &&\
+    mv /root/.zprezto/runcoms/zlogout /root/.zlogout &&\
+    mv /root/.zprezto/runcoms/zpreztorc /root/.zpreztorc &&\
+    mv /root/.zprezto/runcoms/zprofile /root/.zprofile &&\
+    mv /root/.zprezto/runcoms/zshenv /root/.zshenv &&\
+    mv /root/.zprezto/runcoms/zshrc /root/.zshrc
+
+RUN echo "`cat /root/.bashrc`" >> /root/.zshrc
+
 WORKDIR /usr/src/app
 
 ONBUILD COPY Gemfile /usr/src/app/
-ONBUILD COPY Gemfile.lock /usr/src/app/
+# ONBUILD COPY Gemfile.lock /usr/src/app/
 ONBUILD RUN bundle install
 
 EXPOSE 3000
